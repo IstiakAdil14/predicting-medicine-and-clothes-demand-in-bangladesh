@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-INPUT_CSV = Path("clothes-demand-prediction/bangladesh_clothes_demand.csv")
-OUTPUT_CSV = Path("clothes-demand-prediction/cleaned_clothes_demand.csv")
+INPUT_CSV = Path("bangladesh_clothes_demand.csv")
+OUTPUT_CSV = Path("cleaned_clothes_demand.csv")
 
 clothes_cols = ["shirts", "pants", "jackets", "sarees", "dresses", "coats"]
 numeric_cols = ["population", "pop_density", "year"] + clothes_cols

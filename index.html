@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bangladesh Demand Prediction System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><img src="https://flagcdn.com/w40/bd.png" alt="Bangladesh Flag" style="width: 32px; height: 24px; margin-right: 10px; vertical-align: middle;">Bangladesh Demand Prediction System</h1>
+            <p>Predicting clothes and medicine demand using machine learning to help retailers and pharmacies optimize inventory planning across Bangladesh's major cities</p>
+        </div>
+
+        <div class="main-card">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('clothes')">👕 Clothes Prediction</button>
+                <button class="tab" onclick="switchTab('medicine')">💊 Medicine Prediction</button>
+            </div>
+
+            <div class="content">
+                <div id="clothes-content">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="clothes-year">Year</label>
+                            <input type="number" id="clothes-year" min="2010" max="2030" value="2024">
+                        </div>
+                        <div class="form-group">
+                            <label for="clothes-item">Clothing Item</label>
+                            <select id="clothes-item">
+                                <option value="shirts">👔 Shirts</option>
+                                <option value="pants">👖 Pants</option>
+                                <option value="jackets">🧥 Jackets</option>
+                                <option value="sarees">🥻 Sarees</option>
+                                <option value="dresses">👗 Dresses</option>
+                                <option value="coats">🧥 Coats</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="clothes-area">Area</label>
+                            <select id="clothes-area">
+                                <option value="Dhaka North">Dhaka North</option>
+                                <option value="Dhaka South">Dhaka South</option>
+                                <option value="Gazipur">Gazipur</option>
+                                <option value="Chittagong City">Chittagong City</option>
+                                <option value="Cox's Bazar">Cox's Bazar</option>
+                                <option value="Khulna City">Khulna City</option>
+                                <option value="Rajshahi City">Rajshahi City</option>
+                                <option value="Sylhet City">Sylhet City</option>
+                                <option value="Rangpur City">Rangpur City</option>
+                                <option value="Barisal City">Barisal City</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="predictDemand('clothes')">🔮 Predict Demand</button>
+                        <button class="btn btn-secondary" onclick="showTrend('clothes')">📈 Show Trend</button>
+                    </div>
+                </div>
+
+                <div id="medicine-content" style="display: none;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="medicine-year">Year</label>
+                            <input type="number" id="medicine-year" min="2010" max="2060" value="2024">
+                        </div>
+                        <div class="form-group">
+                            <label for="medicine-item">Medicine Type</label>
+                            <select id="medicine-item">
+                                <option value="antibiotics">💊 Antibiotics</option>
+                                <option value="painkillers">🩹 Painkillers</option>
+                                <option value="antacids">🥛 Antacids</option>
+                                <option value="vitamins">🌟 Vitamins</option>
+                                <option value="antihistamines">🤧 Antihistamines</option>
+                                <option value="insulin">💉 Insulin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="medicine-area">Area</label>
+                            <select id="medicine-area">
+                                <option value="Dhaka North">Dhaka North</option>
+                                <option value="Dhaka South">Dhaka South</option>
+                                <option value="Gazipur">Gazipur</option>
+                                <option value="Chittagong City">Chittagong City</option>
+                                <option value="Cox's Bazar">Cox's Bazar</option>
+                                <option value="Khulna City">Khulna City</option>
+                                <option value="Rajshahi City">Rajshahi City</option>
+                                <option value="Sylhet City">Sylhet City</option>
+                                <option value="Rangpur City">Rangpur City</option>
+                                <option value="Barisal City">Barisal City</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="predictDemand('medicine')">🔮 Predict Demand</button>
+                        <button class="btn btn-secondary" onclick="showTrend('medicine')">📈 Show Trend</button>
+                    </div>
+                </div>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Processing your request...</p>
+                </div>
+
+                <div class="error-message" id="error-message"></div>
+
+                <div class="result-card" id="result-card">
+                    <div class="result-header">
+                        <span class="result-icon" id="result-icon">📊</span>
+                        <span class="result-title" id="result-title">Prediction Result</span>
+                    </div>
+                    
+                    <div class="result-grid" id="result-grid">
+                        <!-- Results will be populated here -->
+                    </div>
+
+                    <div class="accuracy-section">
+                        <div class="accuracy-title">📈 Model Accuracy</div>
+                        <div class="accuracy-grid" id="accuracy-grid">
+                            <!-- Accuracy metrics will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-container" id="chart-container">
+                    <div class="chart-title" id="chart-title">Demand Trend Analysis</div>
+                    <canvas id="trendChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

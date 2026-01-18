@@ -1,75 +1,75 @@
-
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
-districts_areas = {
-    "Dhaka": ["Dhaka North", "Dhaka South", "Gazipur", "Narsingdi"],
-    "Chittagong": ["Chittagong City", "Cox's Bazar", "Feni", "Comilla"],
-    "Khulna": ["Khulna City", "Jessore", "Satkhira", "Bagerhat"],
-    "Rajshahi": ["Rajshahi City", "Pabna", "Natore", "Bogra"],
-    "Barisal": ["Barisal City", "Patuakhali", "Bhola", "Jhalokathi"],
-    "Sylhet": ["Sylhet City", "Moulvibazar", "Habiganj", "Sunamganj"],
-    "Rangpur": ["Rangpur City", "Dinajpur", "Thakurgaon", "Lalmonirhat"],
-    "Mymensingh": ["Mymensingh City", "Netrokona", "Jamalpur", "Sherpur"],
-}
+INPUT_CSV = Path("bangladesh_medicine_demand.csv")
+OUTPUT_CSV = Path("cleaned_medicine_demand.csv")
 
-medicine_cols = [
-    "antibiotics",
-    "painkillers",
-    "antacids",
-    "vitamins",
-    "antihistamines",
-    "insulin",
-]
-years = list(range(2010, 2026))
+medicine_cols = ["antibiotics", "painkillers", "antacids", "vitamins", "antihistamines", "insulin"]
+numeric_cols = ["population", "pop_density", "year"] + medicine_cols
 
-data = []
-np.random.seed(42)
+def main():
+    df = pd.read_csv(INPUT_CSV)
 
-for district, areas in districts_areas.items():
-    for area in areas:
-        base_pop = np.random.randint(100_000, 1_000_000)
-        base_density = np.random.uniform(500, 5000)
+    df.columns = [c.strip() for c in df.columns]
 
-        for year in years:
-            growth_rate = np.random.uniform(0.011, 0.015)
-            pop = base_pop * ((1 + growth_rate) ** (year - 2010))
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
-            medicine_demand = {}
-            for med in medicine_cols:
-                value = np.random.normal(
-                    loc=base_density / 1000 + np.random.uniform(10, 50), scale=5
-                )
+    df["population"] = (
+        df.groupby(["district", "area"])["population"]
+        .transform(lambda x: x.fillna(x.median()))
+        .fillna(df["population"].median())
+    )
 
-                if np.random.rand() < 0.05:
-                    value *= np.random.choice([0.1, 2, 4, 6])
+    df["pop_density"] = (
+        df.groupby(["district", "area"])["pop_density"]
+        .transform(lambda x: x.fillna(x.median()))
+        .fillna(df["pop_density"].median())
+    )
 
-                if np.random.rand() < 0.03:
-                    value = np.nan
+    for col in medicine_cols:
+        if col in df.columns:
+            df.loc[df[col] < 0, col] = np.nan
 
-                medicine_demand[med] = max(0, value)
-
-            population_val = int(pop)
-            if np.random.rand() < 0.02:
-                population_val = np.nan
-
-            density_val = round(base_density, 2)
-            if np.random.rand() < 0.02:
-                density_val = np.nan
-
-            data.append(
-                {
-                    "district": district,
-                    "area": area,
-                    "year": year,
-                    "population": population_val,
-                    "pop_density": density_val,
-                    **medicine_demand,
-                }
+    for col in medicine_cols:
+        if col in df.columns:
+            df[col] = df.groupby(["district", "area", "year"])[col].transform(
+                lambda x: x.fillna(x.median())
             )
 
-df = pd.DataFrame(data)
-csv_path = "medicine-demand-prediction/bangladesh_medicine_demand.csv"
-df.to_csv(csv_path, index=False)
+            df[col] = df.groupby(["district", "area"])[col].transform(
+                lambda x: x.fillna(x.median())
+            )
 
-print(f"Synthetic medicine demand CSV written to: {csv_path}")
+            df[col] = df[col].fillna(df[col].median())
+
+    if "vulnerable" in df.columns:
+        df["vulnerable_flag"] = df["vulnerable"].astype(bool).astype(int)
+    else:
+        df["vulnerable_flag"] = (
+            (df["pop_density"] < df["pop_density"].median())
+            & (df["population"] < df["population"].median())
+        ).astype(int)
+
+    df["pop_density_per_1000"] = df["pop_density"] / 1000.0
+
+    df["year_scaled"] = (df["year"] - df["year"].min()) / (
+        df["year"].max() - df["year"].min()
+    )
+
+    df = df.sort_values(["district", "area", "year"])
+
+    for col in medicine_cols:
+        if col in df.columns:
+            df[f"{col}_prev"] = df.groupby(["district", "area"])[col].shift(1)
+            df[f"{col}_prev"] = df[f"{col}_prev"].fillna(df[f"{col}_prev"].median())
+
+    OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(OUTPUT_CSV, index=False)
+
+    print(f"Cleaned medicine-demand CSV saved to:\n{OUTPUT_CSV}")
+
+if __name__ == "__main__":
+    main()
