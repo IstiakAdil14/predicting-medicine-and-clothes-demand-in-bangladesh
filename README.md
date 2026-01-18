@@ -264,8 +264,8 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ## 👥 Team
 
 **Project Maintainer**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: your.email@example.com
+- GitHub: [@istiakadil14](https://github.com/IstiakAdil14/)
+- Email: istiakadil346@gmail.com
 
 ## 🙏 Acknowledgments
 
