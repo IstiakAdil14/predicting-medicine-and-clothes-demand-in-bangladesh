@@ -1,5 +1,78 @@
 let currentTab = 'clothes';
 let trendChart = null;
+let clothesItems = [];
+let medicineItems = [];
+let areas = [];
+
+// Data configuration
+const DATA_CONFIG = {
+    clothes: {
+        items: ['shirts', 'pants', 'jackets', 'sarees', 'dresses', 'coats'],
+        icons: {
+            shirts: '👔',
+            pants: '👖', 
+            jackets: '🧥',
+            sarees: '🥻',
+            dresses: '👗',
+            coats: '🧥'
+        }
+    },
+    medicine: {
+        items: ['antibiotics', 'painkillers', 'antacids', 'vitamins', 'antihistamines', 'insulin'],
+        icons: {
+            antibiotics: '💊',
+            painkillers: '🩹',
+            antacids: '🥛',
+            vitamins: '🌟',
+            antihistamines: '🤧',
+            insulin: '💉'
+        }
+    },
+    areas: [
+        'Dhaka North', 'Dhaka South', 'Gazipur', 'Chittagong City',
+        'Cox\'s Bazar', 'Khulna City', 'Rajshahi City', 'Sylhet City',
+        'Rangpur City', 'Barisal City'
+    ]
+};
+
+// Initialize dropdowns when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    populateDropdowns();
+});
+
+function populateDropdowns() {
+    // Populate clothes items
+    const clothesSelect = document.getElementById('clothes-item');
+    clothesSelect.innerHTML = '';
+    DATA_CONFIG.clothes.items.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item;
+        option.textContent = `${DATA_CONFIG.clothes.icons[item]} ${item.charAt(0).toUpperCase() + item.slice(1)}`;
+        clothesSelect.appendChild(option);
+    });
+    
+    // Populate medicine items
+    const medicineSelect = document.getElementById('medicine-item');
+    medicineSelect.innerHTML = '';
+    DATA_CONFIG.medicine.items.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item;
+        option.textContent = `${DATA_CONFIG.medicine.icons[item]} ${item.charAt(0).toUpperCase() + item.slice(1)}`;
+        medicineSelect.appendChild(option);
+    });
+    
+    // Populate areas for both dropdowns
+    ['clothes-area', 'medicine-area'].forEach(selectId => {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '';
+        DATA_CONFIG.areas.forEach(area => {
+            const option = document.createElement('option');
+            option.value = area;
+            option.textContent = area;
+            select.appendChild(option);
+        });
+    });
+}
 
 function switchTab(tab) {
     currentTab = tab;
