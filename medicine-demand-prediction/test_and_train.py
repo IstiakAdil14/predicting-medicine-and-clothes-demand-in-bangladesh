@@ -1,3 +1,6 @@
+# Bangladesh Medicine Demand Prediction - Training and Testing Module
+# This script trains a Random Forest model to predict medicine demand across Bangladesh
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,9 +11,11 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
+# Load the medicine demand dataset
 csv_path = Path("bangladesh_medicine_demand.csv")
 df = pd.read_csv(csv_path)
 
+# Define medicine types and numeric columns for preprocessing
 medicine_cols = [
     "antibiotics",
     "painkillers",
@@ -21,8 +26,10 @@ medicine_cols = [
 ]
 num_cols = ["population", "pop_density"] + medicine_cols
 
+# Fill missing values with median
 df[num_cols] = df[num_cols].fillna(df[num_cols].median())
 
+# Remove outliers using IQR method
 for col in num_cols:
     Q1 = df[col].quantile(0.25)
     Q3 = df[col].quantile(0.75)
@@ -31,18 +38,23 @@ for col in num_cols:
     upper = Q3 + 1.5 * IQR
     df[col] = np.clip(df[col], lower, upper)
 
-df["pop_density_per_1000"] = df["pop_density"] / 1000
+# Create engineered features
+df["pop_density_per_1000"] = df["pop_density"] / 1000  # Scale population density
 df["year_scaled"] = (df["year"] - df["year"].min()) / (
     df["year"].max() - df["year"].min()
-)
+)  # Normalize year to 0-1 range
 
+# Sort data for lag feature creation
 df_sorted = df.sort_values(["district", "area", "year"])
+# Create lag features (previous year demand)
 for med in medicine_cols:
     df_sorted[f"{med}_prev"] = df_sorted.groupby(["district", "area"])[med].shift(1)
 
+# Fill missing lag features with median
 lag_cols = [f"{m}_prev" for m in medicine_cols]
 df_sorted[lag_cols] = df_sorted[lag_cols].fillna(df_sorted[lag_cols].median())
 
+# Define features and targets for machine learning
 features = [
     "population",
     "pop_density",
@@ -51,18 +63,24 @@ features = [
 ] + lag_cols
 targets = medicine_cols
 
+# Prepare data for cross-validation
 X = df_sorted[features]
 y = df_sorted[targets]
 groups = df_sorted["district"]
 
+# Perform GroupKFold cross-validation to prevent data leakage
 gkf = GroupKFold(n_splits=len(df_sorted["district"].unique()))
 print("=== Per-District Cross-Validation Metrics (Medicine) ===")
 
+# Track performance metrics
+all_mae_values = []
+all_rmse_values = []
 for train_idx, test_idx in gkf.split(X, y, groups=groups):
     X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
     y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
     district_name = groups.iloc[test_idx].unique()[0]
 
+    # Train Random Forest model
     model = RandomForestRegressor(
         n_estimators=300,
         max_depth=10,
@@ -73,6 +91,7 @@ for train_idx, test_idx in gkf.split(X, y, groups=groups):
     )
     model.fit(X_train, y_train)
 
+    # Make predictions and calculate metrics
     y_pred = model.predict(X_test)
     print(f"District: {district_name}")
 
@@ -81,8 +100,19 @@ for train_idx, test_idx in gkf.split(X, y, groups=groups):
         rmse = np.sqrt(mse)
         mae = mean_absolute_error(y_test[med], y_pred[:, i])
         r2 = r2_score(y_test[med], y_pred[:, i])
+        all_mae_values.append(mae)
+        all_rmse_values.append(rmse)
         print(f"{med}: MSE={mse:.2f}, RMSE={rmse:.2f}, MAE={mae:.2f}, R2={r2:.2f}")
 
+# Calculate overall performance metrics
+avg_mae = np.mean(all_mae_values)
+avg_rmse = np.mean(all_rmse_values)
+
+print(f"\n📊 Overall Model Performance:")
+print(f"   Average MAE: {avg_mae:.2f} units")
+print(f"   Average RMSE: {avg_rmse:.2f} units")
+
+# Train final model on all data
 final_model = RandomForestRegressor(
     n_estimators=300,
     max_depth=10,
@@ -95,22 +125,27 @@ final_model.fit(X, y)
 
 print("✅ Model trained successfully!")
 
+# Medicine Demand Predictor Class
+# Provides interface for making predictions and visualizing trends
 class MedicinePredictor:
     def __init__(self):
         self.model = final_model
         self.df = df_sorted
         self.medicine_items = medicine_cols
+        self.avg_mae = avg_mae
+        self.avg_rmse = avg_rmse
         
     def predict_item(self, year, item, area):
         """Predict demand for specific medicine in specific area for given year"""
+        # Validate item input
         if item.lower() not in [c.lower() for c in self.medicine_items]:
             return f"❌ Item '{item}' not available. Choose from: {', '.join(self.medicine_items)}"
         
-        # Get area data (use average if area not found)
+        # Get area-specific demographic data
         area_data = self.df[self.df['area'].str.contains(area, case=False, na=False)]
         
         if area_data.empty:
-            # Use overall average
+            # Fallback to overall averages if area not found
             avg_pop = self.df['population'].mean()
             avg_density = self.df['pop_density'].mean()
             print(f"⚠️  Area '{area}' not found. Using average values.")
@@ -118,21 +153,21 @@ class MedicinePredictor:
             avg_pop = area_data['population'].mean()
             avg_density = area_data['pop_density'].mean()
         
-        # Prepare features for prediction
+        # Prepare input features for prediction
         pop_density_per_1000 = avg_density / 1000
         year_scaled = (year - self.df['year'].min()) / (self.df['year'].max() - self.df['year'].min())
         
-        # Use median values for lag features
+        # Use median values for lag features (previous year demand)
         lag_features = [self.df[f"{c}_prev"].median() for c in self.medicine_items]
         
-        # Create feature vector
+        # Create feature vector matching training data format
         feature_names = ['population', 'pop_density', 'pop_density_per_1000', 'year_scaled'] + [f"{c}_prev" for c in self.medicine_items]
         prediction_input = pd.DataFrame([[avg_pop, avg_density, pop_density_per_1000, year_scaled] + lag_features], columns=feature_names)
         
-        # Make prediction for all items
+        # Generate predictions for all medicine types
         all_predictions = self.model.predict(prediction_input)[0]
         
-        # Get specific item prediction
+        # Extract prediction for requested medicine
         item_index = [c.lower() for c in self.medicine_items].index(item.lower())
         predicted_demand = all_predictions[item_index]
         
@@ -140,37 +175,38 @@ class MedicinePredictor:
             'item': item,
             'area': area,
             'year': year,
-            'predicted_demand': round(max(predicted_demand, 0), 1),
+            'predicted_demand': round(max(predicted_demand, 0), 1),  # Ensure non-negative
             'population': int(avg_pop),
             'density': int(avg_density)
         }
     
     def show_trend(self, item, area):
         """Show actual vs predicted demand trend for specific medicine in specific area from 2010-2025"""
+        # Validate item input
         if item.lower() not in [c.lower() for c in self.medicine_items]:
             print(f"❌ Item '{item}' not available.")
             return
         
-        # Get area data
+        # Get area-specific data
         area_data = self.df[self.df['area'].str.contains(area, case=False, na=False)]
         
         if area_data.empty:
             print(f"⚠️  Area '{area}' not found.")
             return
         
-        # Get actual data for this area and item
+        # Extract historical data for visualization
         actual_data = area_data[['year', item]].sort_values('year')
         years = actual_data['year'].values
         actual_values = actual_data[item].values
         
-        # Get predicted values using the model
+        # Generate model predictions for comparison
         avg_pop = area_data['population'].mean()
         avg_density = area_data['pop_density'].mean()
         item_index = [c.lower() for c in self.medicine_items].index(item.lower())
         
         predicted_values = []
         for year in years:
-            # Get year-specific data if available, otherwise use area average
+            # Use year-specific demographics if available
             year_data = area_data[area_data['year'] == year]
             if not year_data.empty:
                 year_pop = year_data['population'].iloc[0]
@@ -179,6 +215,7 @@ class MedicinePredictor:
                 year_pop = avg_pop
                 year_density = avg_density
             
+            # Prepare features for prediction
             pop_density_per_1000 = year_density / 1000
             year_scaled = (year - self.df['year'].min()) / (self.df['year'].max() - self.df['year'].min())
             lag_features = [self.df[f"{c}_prev"].median() for c in self.medicine_items]
@@ -188,7 +225,7 @@ class MedicinePredictor:
             all_preds = self.model.predict(pred_input)[0]
             predicted_values.append(max(all_preds[item_index], 0))
         
-        # Plot actual vs predicted
+        # Create visualization comparing actual vs predicted trends
         plt.figure(figsize=(10, 6))
         plt.plot(years, actual_values, marker='o', linewidth=2, markersize=6, color='blue', label='Actual')
         plt.plot(years, predicted_values, marker='s', linewidth=2, markersize=6, color='red', label='Predicted')
@@ -197,10 +234,12 @@ class MedicinePredictor:
         plt.ylabel(f'{item.title()} Demand (units)')
         plt.legend()
         plt.grid(True, alpha=0.3)
-        plt.xticks(years[::2])  # Show every 2nd year
+        plt.xticks(years[::2])  # Show every 2nd year to avoid crowding
         plt.tight_layout()
         plt.show()
 
+# Interactive User Interface
+# Provides command-line interface for making predictions and viewing trends
 def user_interface():
     predictor = MedicinePredictor()
     
@@ -216,6 +255,7 @@ def user_interface():
         choice = input("\nEnter choice (1-3): ").strip()
         
         if choice == '1':
+            # Single prediction workflow
             year = int(input("Enter year: "))
             item = input("Enter medicine (antibiotics/painkillers/antacids/vitamins/antihistamines/insulin): ").strip()
             area = input("Enter area (e.g., Dhaka North): ").strip()
@@ -223,6 +263,7 @@ def user_interface():
             result = predictor.predict_item(year, item, area)
             
             if isinstance(result, dict):
+                # Display prediction results
                 print(f"\n📊 Prediction Result:")
                 print(f"   Medicine: {result['item'].title()}")
                 print(f"   Area: {result['area']}")
@@ -230,14 +271,14 @@ def user_interface():
                 print(f"   Predicted Demand: {result['predicted_demand']} units")
                 print(f"   Population: {result['population']:,}")
                 print(f"   Density: {result['density']:,}/km²")
-                print(f"\n📈 Model Accuracy:")
-                print(f"   R² Score: 79% (Medicine Model)")
-                print(f"   MAE: ~12 units average error")
-                print(f"   Confidence: High")
+                print("📈 Model Performance:")
+                print(f"   Average MAE: {predictor.avg_mae:.2f} units")
+                print(f"   Average RMSE: {predictor.avg_rmse:.2f} units")
             else:
-                print(result)
+                print(result)  # Error message
         
         elif choice == '2':
+            # Trend visualization workflow
             item = input("Enter medicine (antibiotics/painkillers/antacids/vitamins/antihistamines/insulin): ").strip()
             area = input("Enter area (e.g., Dhaka North): ").strip()
             predictor.show_trend(item, area)
@@ -249,5 +290,5 @@ def user_interface():
         else:
             print("❌ Invalid choice!")
 
-# Run the user interface
+# Execute the interactive interface
 user_interface()
